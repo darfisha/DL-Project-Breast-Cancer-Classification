@@ -74,8 +74,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Banner
-st.image("banner.png", use_container_width=True)
+# Banner (smaller size)
+st.image("banner.png", use_column_width=False, width=500)
 
 st.title("🎗️ Breast Cancer Classification — Interactive App")
 
@@ -170,11 +170,18 @@ with tabs[2]:
 
         else:
             inputs = {}
-            for f in cols[:5]:  # keep only top 5 features
+            # Only top 5 features editable
+            for f in cols[:5]:
                 inputs[f] = st.number_input(f, float(df[f].min()), float(df[f].max()), float(df[f].mean()))
-            Xraw = pd.DataFrame([inputs])
+
+            # Fill remaining with mean values to match scaler
+            for f in cols[5:]:
+                inputs[f] = float(df[f].mean())
+
+            Xraw = pd.DataFrame([inputs])[cols]
             pred = (model.predict(scaler.transform(Xraw)) >= 0.5).astype(int)[0][0]
             label = '✅ Benign' if pred == 1 else '⚠️ Malignant'
+
             st.subheader("Prediction Result")
             st.metric("Outcome", label)
 
