@@ -349,5 +349,3 @@ with tabs[3]:
     st.markdown('---')
     st.write('You can also copy the app Python file and run:')
     st.code('streamlit run streamlit_breast_cancer_app.py')
-
-!pip install streamlit
