@@ -2,12 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import io
-import pickle
+import sklearn.datasets
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, accuracy_score
-import sklearn.datasets
 
 try:
     import tensorflow as tf
@@ -70,10 +68,10 @@ st.markdown("""
         background: #111111;
         padding: 15px;
         border-radius: 10px;
-        color: #FFFFFF;          /* Add this line to make metric text white */
+        color: #FFFFFF;
     }
     .stMetric .stMetricValue {
-        color: #FFFFFF !important;  /* Ensures the number itself is white */
+        color: #FFFFFF !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -159,36 +157,36 @@ with tabs[2]:
     if 'trained_model' not in st.session_state:
         st.warning("Please train a model first.")
     else:
-        option = st.radio("Choose Input Method", ["Upload CSV", "Manual Input"])
         model = st.session_state['trained_model']
         scaler = st.session_state['scaler']
         cols = st.session_state['features']
 
-        if option == "Upload CSV":
-            uploaded = st.file_uploader("Upload CSV", type=['csv'])
-            if uploaded:
-                df_in = pd.read_csv(uploaded)
-                preds = (model.predict(scaler.transform(df_in[cols])) >= 0.5).astype(int)
-                df_in['Prediction'] = np.where(preds==1, '✅ Benign', '⚠️ Malignant')
-                st.dataframe(df_in.head())
-                st.session_state['last_predictions'] = df_in
+        inputs = {}
+        # Only top 5 features editable
+        for f in cols[:5]:
+            inputs[f] = st.number_input(f, float(df[f].min()), float(df[f].max()), float(df[f].mean()))
 
+        # Fill remaining with mean values
+        for f in cols[5:]:
+            inputs[f] = float(df[f].mean())
+
+        Xraw = pd.DataFrame([inputs])[cols]
+        pred = (model.predict(scaler.transform(Xraw)) >= 0.5).astype(int)[0][0]
+        label = '✅ Benign' if pred == 1 else '⚠️ Malignant'
+
+        st.subheader("Prediction Result")
+        st.metric("Outcome", label)
+
+        # Save predictions (append mode)
+        result_df = Xraw.copy()
+        result_df["Prediction"] = label
+        if "last_predictions" in st.session_state:
+            st.session_state["last_predictions"] = pd.concat(
+                [st.session_state["last_predictions"], result_df],
+                ignore_index=True
+            )
         else:
-            inputs = {}
-            # Only top 5 features editable
-            for f in cols[:5]:
-                inputs[f] = st.number_input(f, float(df[f].min()), float(df[f].max()), float(df[f].mean()))
-
-            # Fill remaining with mean values to match scaler
-            for f in cols[5:]:
-                inputs[f] = float(df[f].mean())
-
-            Xraw = pd.DataFrame([inputs])[cols]
-            pred = (model.predict(scaler.transform(Xraw)) >= 0.5).astype(int)[0][0]
-            label = '✅ Benign' if pred == 1 else '⚠️ Malignant'
-
-            st.subheader("Prediction Result")
-            st.metric("Outcome", label)
+            st.session_state["last_predictions"] = result_df
 
 # -----------------------
 # 4) Export
@@ -196,7 +194,9 @@ with tabs[2]:
 with tabs[3]:
     st.header("📥 Export Results")
     if 'last_predictions' in st.session_state:
+        st.dataframe(st.session_state['last_predictions'])
         csv = st.session_state['last_predictions'].to_csv(index=False).encode('utf-8')
         st.download_button("Download Predictions", csv, "predictions.csv", "text/csv")
+        st.success("✅ Predictions saved and ready to export.")
     else:
         st.info("No predictions available yet.")
