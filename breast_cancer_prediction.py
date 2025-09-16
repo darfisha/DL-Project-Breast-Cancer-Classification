@@ -6,6 +6,8 @@ import sklearn.datasets
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, accuracy_score
+import time  # for progress animations
+import requests  # for lottie
 
 try:
     import tensorflow as tf
@@ -15,6 +17,7 @@ try:
     TF_AVAILABLE = True
 except Exception:
     TF_AVAILABLE = False
+
 
 # -----------------------
 # Helper functions
@@ -38,12 +41,19 @@ def build_model(input_dim, hidden_size=16, lr=0.001):
     model.compile(optimizer=Adam(learning_rate=lr), loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
+# Lottie animation loader
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
 # -----------------------
 # Streamlit UI
 # -----------------------
 st.set_page_config(page_title="Breast Cancer Classifier", layout="wide")
 
-# Force dark theme styling with CSS
+# Dark theme CSS
 st.markdown("""
     <style>
     body { 
@@ -117,21 +127,31 @@ with tabs[1]:
         lr = st.slider('Learning Rate', 0.0001, 0.01, 0.001, format="%f")
 
         if st.button("🚀 Train Model"):
-            X = df[FEATURES]
-            y = df['label']
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y)
-            scaler = StandardScaler()
-            X_train_s = scaler.fit_transform(X_train)
-            X_test_s = scaler.transform(X_test)
+            with st.spinner("Training model... Please wait ⏳"):
+                # Fake progress bar
+                progress = st.progress(0)
+                for i in range(100):
+                    time.sleep(0.02)
+                    progress.progress(i + 1)
 
-            model = build_model(X_train.shape[1], hidden, lr)
-            history = model.fit(X_train_s, y_train, validation_data=(X_test_s, y_test),
-                                epochs=epochs, batch_size=batch_size, verbose=0)
+                # Prepare data
+                X = df[FEATURES]
+                y = df['label']
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y)
+                scaler = StandardScaler()
+                X_train_s = scaler.fit_transform(X_train)
+                X_test_s = scaler.transform(X_test)
 
-            preds = (model.predict(X_test_s) >= 0.5).astype(int)
-            acc = accuracy_score(y_test, preds)
+                # Train model
+                model = build_model(X_train.shape[1], hidden, lr)
+                history = model.fit(X_train_s, y_train, validation_data=(X_test_s, y_test),
+                                    epochs=epochs, batch_size=batch_size, verbose=0)
+
+                preds = (model.predict(X_test_s) >= 0.5).astype(int)
+                acc = accuracy_score(y_test, preds)
 
             st.success(f"✅ Accuracy: {acc*100:.2f}%")
+            st.balloons()  # 🎈 Celebration animation
 
             # Loss curve
             fig = px.line(y=[history.history['loss'], history.history['val_loss']],
@@ -170,9 +190,10 @@ with tabs[2]:
         for f in cols[5:]:
             inputs[f] = float(df[f].mean())
 
-        Xraw = pd.DataFrame([inputs])[cols]
-        pred = (model.predict(scaler.transform(Xraw)) >= 0.5).astype(int)[0][0]
-        label = '✅ Benign' if pred == 1 else '⚠️ Malignant'
+        with st.spinner("Making prediction 🔮..."):
+            Xraw = pd.DataFrame([inputs])[cols]
+            pred = (model.predict(scaler.transform(Xraw)) >= 0.5).astype(int)[0][0]
+            label = '✅ Benign' if pred == 1 else '⚠️ Malignant'
 
         st.subheader("Prediction Result")
         st.metric("Outcome", label)
@@ -193,10 +214,17 @@ with tabs[2]:
 # -----------------------
 with tabs[3]:
     st.header("📥 Export Results")
+
+    # Load fun Lottie animation
+    from streamlit_lottie import st_lottie
+    lottie_download = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_jbrw3hcz.json")
+    if lottie_download:
+        st_lottie(lottie_download, height=150, key="download_anim")
+
     if 'last_predictions' in st.session_state:
         st.dataframe(st.session_state['last_predictions'])
         csv = st.session_state['last_predictions'].to_csv(index=False).encode('utf-8')
-        st.download_button("Download Predictions", csv, "predictions.csv", "text/csv")
+        st.download_button("⬇️ Download Predictions", csv, "predictions.csv", "text/csv")
         st.success("✅ Predictions saved and ready to export.")
     else:
         st.info("No predictions available yet.")
