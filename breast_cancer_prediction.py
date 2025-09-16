@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, accuracy_score
 import time  # for progress animations
-import requests  # for lottie
 
 try:
     import tensorflow as tf
@@ -40,13 +39,6 @@ def build_model(input_dim, hidden_size=16, lr=0.001):
     ])
     model.compile(optimizer=Adam(learning_rate=lr), loss='binary_crossentropy', metrics=['accuracy'])
     return model
-
-# Lottie animation loader
-def load_lottieurl(url: str):
-    r = requests.get(url)
-    if r.status_code != 200:
-        return None
-    return r.json()
 
 # -----------------------
 # Streamlit UI
@@ -214,12 +206,6 @@ with tabs[2]:
 # -----------------------
 with tabs[3]:
     st.header("📥 Export Results")
-
-    # Load fun Lottie animation
-    from streamlit_lottie import st_lottie
-    lottie_download = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_jbrw3hcz.json")
-    if lottie_download:
-        st_lottie(lottie_download, height=150, key="download_anim")
 
     if 'last_predictions' in st.session_state:
         st.dataframe(st.session_state['last_predictions'])
