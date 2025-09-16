@@ -70,12 +70,17 @@ st.markdown("""
         background: #111111;
         padding: 15px;
         border-radius: 10px;
+        color: #FFFFFF;          /* Add this line to make metric text white */
+    }
+    .stMetric .stMetricValue {
+        color: #FFFFFF !important;  /* Ensures the number itself is white */
     }
     </style>
 """, unsafe_allow_html=True)
 
+
 # Banner (smaller size)
-st.image("banner.png", use_column_width=False, width=500)
+st.image("banner.png", width=500, use_container_width=False)
 
 st.title("🎗️ Breast Cancer Classification — Interactive App")
 
