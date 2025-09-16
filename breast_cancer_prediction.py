@@ -41,30 +41,41 @@ def build_model(input_dim, hidden_size=16, lr=0.001):
     return model
 
 # -----------------------
-# Streamlit UI (Simplified)
+# Streamlit UI
 # -----------------------
 st.set_page_config(page_title="Breast Cancer Classifier", layout="wide")
 
-# Dark theme config
+# Force dark theme styling with CSS
 st.markdown("""
     <style>
-    body {
-        background-color: black;
-        color: white;
+    body { 
+        background-color: #000000; 
+        color: #FFFFFF; 
+    }
+    .stApp {
+        background-color: #000000;
+        color: #FFFFFF;
     }
     .stTabs [role="tab"] {
-        background: #111;
-        color: white;
+        background: #111111;
+        color: #FFFFFF;
+        padding: 10px;
+        border-radius: 5px;
     }
     .stTabs [aria-selected="true"] {
         background: #FF4B4B;
         color: white;
     }
+    .stMetric {
+        background: #111111;
+        padding: 15px;
+        border-radius: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.image("https://upload.wikimedia.org/wikipedia/commons/6/6f/Breast_cancer_tumor.png", 
-         caption="Breast Cancer Cells", use_container_width=True)
+# Banner
+st.image("banner.png", use_container_width=True)
 
 st.title("🎗️ Breast Cancer Classification — Interactive App")
 
@@ -86,7 +97,7 @@ with tabs[0]:
 
     st.subheader("Class Distribution")
     fig = px.histogram(df, x='label', color='label', title='Benign vs Malignant',
-                       labels={'label':'0=Malignant, 1=Benign'})
+                       labels={'label': '0=Malignant, 1=Benign'})
     st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------
@@ -119,11 +130,13 @@ with tabs[1]:
 
             st.success(f"✅ Accuracy: {acc*100:.2f}%")
 
+            # Loss curve
             fig = px.line(y=[history.history['loss'], history.history['val_loss']],
-                          labels={'index':'Epoch','value':'Loss'},
+                          labels={'index': 'Epoch', 'value': 'Loss'},
                           title='Training vs Validation Loss')
             st.plotly_chart(fig, use_container_width=True)
 
+            # Confusion matrix
             cm = confusion_matrix(y_test, preds)
             fig_cm = px.imshow(cm, text_auto=True, color_continuous_scale='Blues',
                                labels=dict(x="Predicted", y="Actual"))
@@ -157,11 +170,11 @@ with tabs[2]:
 
         else:
             inputs = {}
-            for f in cols[:5]:  # only top 5 features for simplicity
+            for f in cols[:5]:  # keep only top 5 features
                 inputs[f] = st.number_input(f, float(df[f].min()), float(df[f].max()), float(df[f].mean()))
             Xraw = pd.DataFrame([inputs])
             pred = (model.predict(scaler.transform(Xraw)) >= 0.5).astype(int)[0][0]
-            label = '✅ Benign' if pred==1 else '⚠️ Malignant'
+            label = '✅ Benign' if pred == 1 else '⚠️ Malignant'
             st.subheader("Prediction Result")
             st.metric("Outcome", label)
 
