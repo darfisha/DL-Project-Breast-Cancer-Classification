@@ -232,15 +232,29 @@ with tabs[2]:
                 st.session_state["last_predictions"] = result_df
 
 # -----------------------
+# -----------------------
 # 4) Export
 # -----------------------
 with tabs[3]:
-    st.header("📥 Export Results")
+    st.header("📥 Export Predictions")
 
-    if 'last_predictions' in st.session_state:
-        st.dataframe(st.session_state['last_predictions'])
-        csv = st.session_state['last_predictions'].to_csv(index=False).encode('utf-8')
-        st.download_button("⬇️ Download Predictions", csv, "predictions.csv", "text/csv")
-        st.success("✅ Predictions saved and ready to export.")
+    if "last_predictions" not in st.session_state or st.session_state["last_predictions"].empty:
+        st.info("ℹ️ No predictions available yet. Run a prediction first.")
     else:
-        st.info("No predictions available yet.")
+        df_export = st.session_state["last_predictions"]
+
+        # Color-code results
+        def highlight_row(row):
+            color = 'background-color: lightgreen' if row["Prediction_Label"] == "Benign" else 'background-color: lightcoral'
+            return [color] * len(row)
+
+        st.dataframe(df_export.style.apply(highlight_row, axis=1))
+
+        # Export button
+        csv = df_export.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="⬇️ Download Prediction CSV",
+            data=csv,
+            file_name="prediction.csv",   # singular since it's only 1
+            mime="text/csv"
+        )
