@@ -162,37 +162,52 @@ with tabs[1]:
             st.session_state['features'] = FEATURES
 
 # -----------------------
-# 3) Predict
-# -----------------------
-with tabs[2]:
-    st.header("🔮 Make Predictions")
-    if 'trained_model' not in st.session_state:
-        st.warning("Please train a model first.")
-    else:
-        model = st.session_state['trained_model']
-        scaler = st.session_state['scaler']
-        cols = st.session_state['features']
+# =========================
+# 🔮 Predict Tab
+# =========================
+elif page == "🔮 Predict":
+    st.header("🔮 Predict Tumor Type")
 
-        inputs = {}
-        # Only top 5 features editable
-        for f in cols[:5]:
-            inputs[f] = st.number_input(f, float(df[f].min()), float(df[f].max()), float(df[f].mean()))
+    # Let user input first 5 features
+    inputs = {}
+    cols = df.columns[:-1]  # drop target column
+    for f in cols[:5]:
+        inputs[f] = st.number_input(
+            f"Enter {f}", 
+            value=float(df[f].mean())
+        )
 
-        # Fill remaining with mean values
-        for f in cols[5:]:
-            inputs[f] = float(df[f].mean())
+    # Fill rest features with mean values
+    for f in cols[5:]:
+        inputs[f] = float(df[f].mean())
 
-        with st.spinner("Making prediction 🔮..."):
-            Xraw = pd.DataFrame([inputs])[cols]
-            pred = (model.predict(scaler.transform(Xraw)) >= 0.5).astype(int)[0][0]
-            label = '✅ Benign' if pred == 1 else '⚠️ Malignant'
+    if st.button("Predict"):
+        # Convert to array and scale
+        Xraw = np.array([list(inputs.values())])
+        Xscaled = scaler.transform(Xraw)
 
-        st.subheader("Prediction Result")
-        st.metric("Outcome", label)
+        # Get prediction probability
+        prob = model.predict(Xscaled)[0][0]
 
-        # Save predictions (append mode)
-        result_df = Xraw.copy()
-        result_df["Prediction"] = label
+        # Threshold at 0.5
+        if prob >= 0.5:
+            pred_label = "Benign"
+            confidence = prob * 100
+            icon = "✅"
+        else:
+            pred_label = "Malignant"
+            confidence = (1 - prob) * 100
+            icon = "⚠️"
+
+        # Display result with confidence
+        st.success(f"Prediction: {icon} {pred_label} ({confidence:.2f}% confidence)")
+
+        # Save prediction into DataFrame
+        result_df = pd.DataFrame([inputs])
+        result_df["Prediction_Label"] = pred_label
+        result_df["Confidence (%)"] = confidence.round(2)
+
+        # Store in session state
         if "last_predictions" in st.session_state:
             st.session_state["last_predictions"] = pd.concat(
                 [st.session_state["last_predictions"], result_df],
