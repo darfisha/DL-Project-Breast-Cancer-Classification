@@ -37,7 +37,9 @@ def build_model(input_dim, hidden_size=16, lr=0.001):
         Dense(hidden_size, activation='relu'),
         Dense(1, activation='sigmoid')
     ])
-    model.compile(optimizer=Adam(learning_rate=lr), loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=Adam(learning_rate=lr),
+                  loss='binary_crossentropy',
+                  metrics=['accuracy'])
     return model
 
 # -----------------------
@@ -78,7 +80,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
 # Banner (smaller size)
 st.image("banner.png", width=500, use_container_width=False)
 
@@ -96,12 +97,17 @@ tabs = st.tabs(["📊 Data Overview", "🧠 Train Model", "🔮 Predict", "📥 
 # -----------------------
 with tabs[0]:
     st.header("📊 Dataset Overview")
-    st.metric("Samples", df.shape[0])
-    st.metric("Features", df.shape[1]-1)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Samples", df.shape[0])
+    with col2:
+        st.metric("Features", df.shape[1]-1)
+
     st.dataframe(df.head(20))
 
     st.subheader("Class Distribution")
-    fig = px.histogram(df, x='label', color='label', title='Benign vs Malignant',
+    fig = px.histogram(df, x='label', color='label',
+                       title='Benign vs Malignant',
                        labels={'label': '0=Malignant, 1=Benign'})
     st.plotly_chart(fig, use_container_width=True)
 
@@ -129,21 +135,24 @@ with tabs[1]:
                 # Prepare data
                 X = df[FEATURES]
                 y = df['label']
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y)
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=0.2, stratify=y)
                 scaler = StandardScaler()
                 X_train_s = scaler.fit_transform(X_train)
                 X_test_s = scaler.transform(X_test)
 
                 # Train model
                 model = build_model(X_train.shape[1], hidden, lr)
-                history = model.fit(X_train_s, y_train, validation_data=(X_test_s, y_test),
-                                    epochs=epochs, batch_size=batch_size, verbose=0)
+                history = model.fit(X_train_s, y_train,
+                                    validation_data=(X_test_s, y_test),
+                                    epochs=epochs, batch_size=batch_size,
+                                    verbose=0)
 
                 preds = (model.predict(X_test_s) >= 0.5).astype(int)
                 acc = accuracy_score(y_test, preds)
 
             st.success(f"✅ Accuracy: {acc*100:.2f}%")
-            st.balloons()  # 🎈 Celebration animation
+            st.balloons()
 
             # Loss curve
             fig = px.line(y=[history.history['loss'], history.history['val_loss']],
@@ -157,64 +166,70 @@ with tabs[1]:
                                labels=dict(x="Predicted", y="Actual"))
             st.plotly_chart(fig_cm, use_container_width=True)
 
+            # Save model + scaler
             st.session_state['trained_model'] = model
             st.session_state['scaler'] = scaler
             st.session_state['features'] = FEATURES
 
 # -----------------------
-# =========================
-# 🔮 Predict Tab
-# =========================
-elif page == "🔮 Predict":
+# 3) Predict
+# -----------------------
+with tabs[2]:
     st.header("🔮 Predict Tumor Type")
 
-    # Let user input first 5 features
-    inputs = {}
-    cols = df.columns[:-1]  # drop target column
-    for f in cols[:5]:
-        inputs[f] = st.number_input(
-            f"Enter {f}", 
-            value=float(df[f].mean())
-        )
+    if 'trained_model' not in st.session_state or 'scaler' not in st.session_state:
+        st.warning("⚠️ Please train the model first in the '🧠 Train Model' tab.")
+    else:
+        model = st.session_state['trained_model']
+        scaler = st.session_state['scaler']
+        features = st.session_state['features']
 
-    # Fill rest features with mean values
-    for f in cols[5:]:
-        inputs[f] = float(df[f].mean())
-
-    if st.button("Predict"):
-        # Convert to array and scale
-        Xraw = np.array([list(inputs.values())])
-        Xscaled = scaler.transform(Xraw)
-
-        # Get prediction probability
-        prob = model.predict(Xscaled)[0][0]
-
-        # Threshold at 0.5
-        if prob >= 0.5:
-            pred_label = "Benign"
-            confidence = prob * 100
-            icon = "✅"
-        else:
-            pred_label = "Malignant"
-            confidence = (1 - prob) * 100
-            icon = "⚠️"
-
-        # Display result with confidence
-        st.success(f"Prediction: {icon} {pred_label} ({confidence:.2f}% confidence)")
-
-        # Save prediction into DataFrame
-        result_df = pd.DataFrame([inputs])
-        result_df["Prediction_Label"] = pred_label
-        result_df["Confidence (%)"] = confidence.round(2)
-
-        # Store in session state
-        if "last_predictions" in st.session_state:
-            st.session_state["last_predictions"] = pd.concat(
-                [st.session_state["last_predictions"], result_df],
-                ignore_index=True
+        # Let user input first 5 features
+        inputs = {}
+        for f in features[:5]:
+            inputs[f] = st.number_input(
+                f"Enter {f}",
+                value=float(df[f].mean())
             )
-        else:
-            st.session_state["last_predictions"] = result_df
+
+        # Fill rest with mean values
+        for f in features[5:]:
+            inputs[f] = float(df[f].mean())
+
+        if st.button("Predict"):
+            # Convert to array and scale
+            Xraw = np.array([list(inputs.values())])
+            Xscaled = scaler.transform(Xraw)
+
+            # Get prediction probability
+            prob = model.predict(Xscaled)[0][0]
+
+            # Threshold at 0.5
+            if prob >= 0.5:
+                pred_label = "Benign"
+                confidence = prob * 100
+                icon = "✅"
+            else:
+                pred_label = "Malignant"
+                confidence = (1 - prob) * 100
+                icon = "⚠️"
+
+            # Display result
+            st.success(f"Prediction: {icon} {pred_label} ({confidence:.2f}% confidence)")
+
+            # Save prediction into DataFrame
+            result_df = pd.DataFrame([inputs])
+            result_df["Prediction_Label"] = pred_label
+            result_df["Confidence (%)"] = confidence.round(2)
+
+            # Store in session state
+            if "last_predictions" in st.session_state:
+                st.session_state["last_predictions"] = pd.concat(
+                    [st.session_state["last_predictions"], result_df],
+                    ignore_index=True
+                )
+            else:
+                st.session_state["last_predictions"] = result_df
 
 # -----------------------
 # 4) Export
